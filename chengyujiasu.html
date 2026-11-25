@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成语加速 </title>
+<style>
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "PingFang SC", system-ui, sans-serif;
+}
+body{
+  min-height: 100vh;
+  background: linear-gradient(135deg, #74b9ff, #0984e3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+.game-card{
+  background: #fff;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 22px;
+  padding: 32px 28px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+.title{
+  font-size: 32px;
+  font-weight: 700;
+  color: #0984e3;
+  margin-bottom: 16px;
+}
+.info-row{
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 14px;
+  font-size: 16px;
+  color: #444;
+}
+.time-box{
+  font-size: 24px;
+  font-weight: bold;
+  color: #27ae60;
+  margin: 10px 0;
+  transition: color 0.3s;
+}
+.time-warning{
+  color: #e74c3c;
+  animation: pulse 0.7s infinite;
+}
+@keyframes pulse {
+  0%{transform: scale(1)}
+  50%{transform: scale(1.05)}
+  100%{transform: scale(1)}
+}
+.progress-wrap{
+  width: 100%;
+  height: 10px;
+  background: #eee;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.progress-bar{
+  height: 100%;
+  background: #0984e3;
+  width: 100%;
+  transition: width 1s linear;
+}
+.prompt{
+  font-size: 20px;
+  color: #2d3436;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  padding: 0 10px;
+}
+input#ansInput{
+  width: 85%;
+  padding: 12px 16px;
+  font-size: 17px;
+  border: 2px solid #dfe6e9;
+  border-radius: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input#ansInput:focus{
+  border-color: #0984e3;
+}
+.btn-group{
+  margin-top: 22px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+button{
+  padding: 11px 18px;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+button:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+#startBtn{background:#0984e3;}
+#submitBtn{background:#00b894;}
+#nextBtn{background:#fdcb6e;color:#222;}
+#soundBtn{background:#a29bfe;}
+.tip{
+  margin-top: 20px;
+  font-size:13px;
+  color:#888;
+}
+.correct-pop{
+  animation: pop 0.4s ease;
+}
+@keyframes pop{
+  0%{transform:scale(1)}
+  50%{transform:scale(1.08)}
+  100%{transform:scale(1)}
+}
+</style>
+</head>
+<body>
+<div class="game-card">
+  <div class="title">成语加速 </div>
+  <div class="info-row">
+    <div>关卡：<span id="level">1</span></div>
+    <div>得分：<span id="score">0</span></div>
+    <div>最高分：<span id="maxScore">0</span></div>
+  </div>
+  <div class="time-box" id="timeBox">剩余时间：<span id="time">30</span> s</div>
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="prompt" id="prompt">点击【开始游戏】开启挑战</div>
+  <input id="ansInput" placeholder="输入答案，回车直接提交" onkeydown="if(event.key==='Enter')checkAnswer()">
+  <div class="btn-group">
+    <button id="startBtn" onclick="startGame()">开始游戏</button>
+    <button id="submitBtn" onclick="checkAnswer()">提交答案</button>
+    <button id="nextBtn" onclick="nextQuestion()">下一题</button>
+    <button id="soundBtn" onclick="toggleSound()">音效</button>
+  </div>
+  <div class="tip">答对3题自动加速，时间缩短，最低10秒</div>
+</div>
+
+<script>
+const audioCorrect = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3");
+const audioWrong = new Audio("https://assets.mixkit.co/sfx/preview/mixkit-software-interface-back-2572.mp3");
+let soundOn = true;
+
+const idiomLib = [
+  ["含有数字的成语", ["一心一意", "三心二意", "四面八方", "五光十色", "七上八下"]],
+  ["含有动物的成语", ["狐假虎威", "虎头蛇尾", "亡羊补牢", "鸡飞狗跳", "画蛇添足"]],
+  ["描写春天的成语", ["春暖花开", "百花齐放", "草长莺飞", "春意盎然", "鸟语花香"]],
+  ["形容开心的成语", ["喜笑颜开", "兴高采烈", "心花怒放", "欢天喜地", "喜出望外"]],
+  ["形容紧张的成语", ["忐忑不安", "心急如焚", "坐立不安", "心神不宁", "惴惴不安"]],
+  ["AABB式成语", ["干干净净", "明明白白", "高高兴兴", "浩浩荡荡", "断断续续"]],
+  ["描写景色优美", ["山清水秀", "湖光山色", "层林尽染", "鸟语花香", "风和日丽"]],
+  ["含有“海”的成语", ["海阔天空", "人山人海", "沧海桑田", "五湖四海", "排山倒海"]],
+  ["含有“山”的成语", ["崇山峻岭", "千山万水", "翻山越岭", "山穷水尽", "东山再起"]],
+  ["描写夏天的成语", ["骄阳似火", "烈日炎炎", "绿树成荫", "汗流浃背", "暑气熏蒸"]],
+  ["描写秋天的成语", ["秋高气爽", "金桂飘香", "硕果累累", "天高云淡", "层林尽染"]],
+  ["描写冬天的成语", ["冰天雪地", "白雪皑皑", "天寒地冻", "银装素裹", "寒风刺骨"]],
+  ["形容人聪明的成语", ["才思敏捷", "过目不忘", "足智多谋", "冰雪聪明", "博古通今"]],
+  ["形容人善良的成语", ["心地善良", "乐善好施", "助人为乐", "慈眉善目", "与人为善"]],
+  ["ABCC式成语", ["生机勃勃", "得意洋洋", "白发苍苍", "风尘仆仆", "小心翼翼"]],
+  ["AABC式成语", ["津津有味", "欣欣向荣", "念念不忘", "亭亭玉立", "源源不断"]],
+  ["描写读书学习", ["废寝忘食", "勤学苦练", "博览群书", "专心致志", "持之以恒"]],
+  ["含有“风”的成语", ["风和日丽", "狂风暴雨", "春风拂面", "乘风破浪", "风平浪静"]],
+  ["形容友情的成语", ["情同手足", "志同道合", "患难与共", "肝胆相照", "形影不离"]],
+  ["形容气势宏大", ["浩浩荡荡", "气势磅礴", "排山倒海", "惊天动地", "波澜壮阔"]]
+]
+
+let level = 1;
+let score = 0;
+let maxScore = Number(localStorage.getItem("maxScore")) || 0;
+let timeLeft = 30;
+let initTime = 30;
+let running = false;
+let timer = null;
+let currentQ = null;
+
+document.getElementById("maxScore").innerText = maxScore;
+
+function toggleSound(){
+  soundOn = !soundOn;
+  document.getElementById("soundBtn").innerText = soundOn ? "音效" : "🔇静音";
+}
+
+function startGame(){
+  if(running) return;
+  level = 1;
+  score = 0;
+  timeLeft = 30;
+  initTime = 30;
+  running = true;
+  updateUI();
+  nextQuestion();
+  countdown();
+}
+
+function countdown(){
+  if(!running) return;
+  timeLeft--;
+  updateUI();
+  if(timeLeft <= 0){
+    running = false;
+    clearTimeout(timer);
+    if(score > maxScore){
+      maxScore = score;
+      localStorage.setItem("maxScore", maxScore);
+      document.getElementById("maxScore").innerText = maxScore;
+    }
+    alert(`⏰ 时间到！游戏结束\n得分：${score}｜到达关卡：${level}\n历史最高分：${maxScore}`);
+    return;
+  }
+  timer = setTimeout(countdown,1000);
+}
+
+function nextQuestion(){
+  currentQ = idiomLib[Math.floor(Math.random() * idiomLib.length)];
+  document.getElementById("prompt").innerText = `请说出：${currentQ[0]}`;
+  document.getElementById("ansInput").value = "";
+  document.getElementById("ansInput").focus();
+}
+
+function checkAnswer(){
+  if(!running || !currentQ) return;
+  const val = document.getElementById("ansInput").value.trim();
+  if(currentQ[1].includes(val)){
+    if(soundOn) audioCorrect.play();
+    score++;
+    document.querySelector(".game-card").classList.add("correct-pop");
+    setTimeout(()=>{document.querySelector(".game-card").classList.remove("correct-pop")},400);
+    if(score % 3 === 0){
+      level++;
+      timeLeft = Math.max(10, timeLeft - 5);
+      initTime = timeLeft;
+      alert(` 加速！进入第${level}关，答题时间缩短！`);
+    }else{
+      alert("✅ 答对啦！继续冲！");
+    }
+    updateUI();
+    nextQuestion();
+  }else{
+    if(soundOn) audioWrong.play();
+    alert(` 不对哦，参考：${currentQ[1].join("、")}`);
+    nextQuestion();
+  }
+}
+
+function updateUI(){
+  document.getElementById("level").innerText = level;
+  document.getElementById("score").innerText = score;
+  document.getElementById("time").innerText = timeLeft;
+  const timeBox = document.getElementById("timeBox");
+  const progress = document.getElementById("progressBar");
+  const pct = (timeLeft / initTime) * 100;
+  progress.style.width = pct + "%";
+  if(timeLeft <= 5){
+    timeBox.classList.add("time-warning");
+  }else{
+    timeBox.classList.remove("time-warning");
+  }
+}
+</script>
+</body>
+</html>
